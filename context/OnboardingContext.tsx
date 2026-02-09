@@ -37,7 +37,33 @@ export const OnboardingProvider = ({ children, projectId }: { children?: ReactNo
   const [isLoading, setIsLoading] = useState(true);
   const isFirstLoad = useRef(true);
 
-  // --- API INTEGRATION ---
+  // --- HELPER: MOCK DB ACCESS ---
+  const getMockSession = (pId: string) => {
+      const sessions = JSON.parse(localStorage.getItem('scopelock_db_sessions') || '{}');
+      return sessions[pId];
+  };
+
+  const updateMockSession = (pId: string, updates: any) => {
+      const sessions = JSON.parse(localStorage.getItem('scopelock_db_sessions') || '{}');
+      if (!sessions[pId]) sessions[pId] = { answers: [], project: {} };
+      
+      sessions[pId] = { ...sessions[pId], ...updates };
+      localStorage.setItem('scopelock_db_sessions', JSON.stringify(sessions));
+
+      // Update Project Progress in project DB for Dashboard
+      const projects = JSON.parse(localStorage.getItem('scopelock_db_projects') || '[]');
+      const pIdx = projects.findIndex((p: any) => p._id === pId);
+      if (pIdx > -1) {
+          const ansCount = sessions[pId].answers?.length || 0;
+          projects[pIdx].progress = Math.min(100, (ansCount / 20) * 100);
+          if (updates.isLocked) {
+              projects[pIdx].isLocked = true;
+              projects[pIdx].status = 'ACTIVE';
+          }
+          localStorage.setItem('scopelock_db_projects', JSON.stringify(projects));
+      }
+  };
+
 
   const mapBackendToFrontend = (backendSession: any) => {
     const mappedData: Record<string, Answer> = {};
@@ -52,17 +78,18 @@ export const OnboardingProvider = ({ children, projectId }: { children?: ReactNo
     }
 
     let context = MOCK_CONTEXT;
+    // Prefer data from backend session if available
     if (backendSession.project) {
         context = {
             projectId: backendSession.project._id || activeProjectId,
-            clientName: backendSession.project.client?.name || 'Unknown Client',
+            clientName: backendSession.project.clientName || backendSession.project.client?.name || 'Unknown Client',
             websiteType: backendSession.project.websiteType || 'Business',
             platform: backendSession.project.platform || 'Custom',
             tier: backendSession.project.tier || 'Standard'
         };
     }
 
-    // Default Pre-fills
+    // Default Pre-fills based on context
     if (!mappedData['website_type']) {
         let defaultType = 'Business/Service';
         if (context.websiteType === 'E-commerce') defaultType = 'E-commerce';
@@ -114,33 +141,34 @@ export const OnboardingProvider = ({ children, projectId }: { children?: ReactNo
       try {
         console.log(`Fetching session for project: ${activeProjectId}...`);
         const res = await fetch(`${API_BASE_URL}/onboarding/${activeProjectId}`);
-        
-        if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+        if (!res.ok) throw new Error(`API Error`);
         
         const sessionData = await res.json();
         const mapped = mapBackendToFrontend(sessionData);
-        
-        setState(prev => ({
-          ...prev,
-          data: mapped.data,
-          isLocked: mapped.isLocked,
-          currentStep: mapped.currentStep,
-          context: mapped.context
-        }));
+        setState(prev => ({ ...prev, ...mapped }));
+
       } catch (err) {
-        console.warn('⚠️ Backend not reachable. Checking LocalStorage...');
+        console.warn('⚠️ Backend not reachable. Checking Local Mock DB...');
         
-        const localDraft = localStorage.getItem(storageKey);
-        if (localDraft) {
-            const parsed = JSON.parse(localDraft);
-            setState(parsed);
+        // Check Shared Mock DB first (created by Admin Dashboard)
+        const mockSession = getMockSession(activeProjectId);
+        
+        if (mockSession) {
+            const mapped = mapBackendToFrontend(mockSession);
+            setState(prev => ({ ...prev, ...mapped }));
         } else {
-             setState(prev => {
-                 const initialData = { ...prev.data };
-                 // Defaults for offline mode
-                 if (!initialData['website_type']) initialData['website_type'] = { value: 'Business/Service', responsibility: Responsibility.CLIENT, lastUpdated: new Date().toISOString() };
-                 return { ...prev, data: initialData };
-             });
+            // Fallback for completely unknown/new sessions in dev
+             const localDraft = localStorage.getItem(storageKey);
+             if (localDraft) {
+                 setState(JSON.parse(localDraft));
+             } else {
+                 // Hard default
+                 setState(prev => {
+                     const initialData = { ...prev.data };
+                     if (!initialData['website_type']) initialData['website_type'] = { value: 'Business/Service', responsibility: Responsibility.CLIENT, lastUpdated: new Date().toISOString() };
+                     return { ...prev, data: initialData };
+                 });
+             }
         }
       } finally {
         setIsLoading(false);
@@ -150,7 +178,7 @@ export const OnboardingProvider = ({ children, projectId }: { children?: ReactNo
     fetchSession();
   }, [activeProjectId]);
 
-  // 2. Persist to LocalStorage
+  // 2. Persist to LocalStorage (Draft)
   useEffect(() => {
     if (isFirstLoad.current) {
         isFirstLoad.current = false;
@@ -163,13 +191,25 @@ export const OnboardingProvider = ({ children, projectId }: { children?: ReactNo
 
   // 3. Submit Answer
   const syncAnswerToBackend = async (fieldId: string, value: any, responsibility: Responsibility) => {
+    // Optimistic UI update handled in setAnswer
     try {
       await fetch(`${API_BASE_URL}/onboarding/${state.context.projectId}/answer`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fieldId, value, responsibility })
       });
-    } catch (err) {}
+    } catch (err) {
+        // Mock DB Update
+        const currentMock = getMockSession(state.context.projectId) || { answers: [], project: {} };
+        const answers = currentMock.answers || [];
+        const idx = answers.findIndex((a: any) => a.fieldId === fieldId);
+        
+        const newAns = { fieldId, value, responsibility, lastUpdated: new Date() };
+        if (idx > -1) answers[idx] = newAns;
+        else answers.push(newAns);
+
+        updateMockSession(state.context.projectId, { answers });
+    }
   };
 
   // 4. Lock Form
@@ -183,7 +223,6 @@ export const OnboardingProvider = ({ children, projectId }: { children?: ReactNo
       const res = await fetch(`${API_BASE_URL}/onboarding/${state.context.projectId}/lock`, {
         method: 'POST'
       });
-      
       if (!res.ok) throw new Error('Failed to lock');
 
       localStorage.removeItem(storageKey); 
@@ -195,6 +234,10 @@ export const OnboardingProvider = ({ children, projectId }: { children?: ReactNo
       }));
     } catch (err) {
        console.warn('Backend lock failed (likely demo mode). Simulating success.');
+       
+       // Update Mock DB
+       updateMockSession(state.context.projectId, { isLocked: true, lockedAt: new Date() });
+
        setTimeout(() => {
          localStorage.removeItem(storageKey); 
          setState(prev => ({ 
@@ -203,7 +246,7 @@ export const OnboardingProvider = ({ children, projectId }: { children?: ReactNo
            isLocked: true,
            currentStep: FORM_SECTIONS.length + 1 
          }));
-       }, 1500);
+       }, 1000);
     }
   };
 

@@ -155,7 +155,42 @@ app.get('/api/admin/projects', async (req: any, res: any) => {
   }
 });
 
-// 5. GET /api/seed
+// 5. POST /api/admin/projects
+// Create a new project manually
+app.post('/api/admin/projects', async (req: any, res: any) => {
+    try {
+        const { clientName, name, platform, tier, websiteType } = req.body;
+        
+        // Find or Create Client
+        let client = await ClientModel.findOne({ name: clientName });
+        if (!client) {
+            client = await ClientModel.create({ name: clientName });
+        }
+
+        const project = await ProjectModel.create({
+            client: client._id,
+            name,
+            platform,
+            tier,
+            websiteType,
+            status: 'ONBOARDING'
+        });
+
+        // Initialize Session
+        await OnboardingSessionModel.create({
+            project: project._id,
+            answers: [],
+            isLocked: false
+        });
+
+        res.json(project);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to create project' });
+    }
+});
+
+// 6. GET /api/seed
 // Helper to populate DB with dummy data for the dashboard
 app.get('/api/seed', async (req: any, res: any) => {
     try {
