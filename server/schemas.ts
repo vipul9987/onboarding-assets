@@ -1,3 +1,4 @@
+
 // This file represents the backend logic requested in the prompts.
 // In a full environment, these would run on the Node.js Express server.
 
@@ -23,6 +24,7 @@ const ProjectSchema = new Schema({
   name: { type: String, required: true },
   
   // Specific Agency Fields
+  serviceType: { type: String, enum: ['WEBSITE', 'SEO', 'BOTH'], default: 'WEBSITE' },
   websiteType: { type: String, enum: ['Business', 'E-commerce', 'Landing Page', 'Portfolio'] },
   platform: { type: String, enum: ['WordPress', 'Shopify', 'Custom'] },
   tier: { type: String, enum: ['Basic', 'Standard', 'Custom'] },

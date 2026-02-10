@@ -1,12 +1,37 @@
-import { SectionDefinition, FieldType } from './types';
 
-// The "Brutal Truth" Agency Structure
+import { SectionDefinition, FieldType, ServiceType } from './types';
+
+// Helpers to cleaner condition logic
+const isWebsite = (d: any) => ['WEBSITE', 'BOTH'].includes(d['service_scope']?.value);
+const isSEO = (d: any) => ['SEO', 'BOTH'].includes(d['service_scope']?.value);
+
 export const FORM_SECTIONS: SectionDefinition[] = [
-  // SECTION 1: GOAL & PURPOSE
+  // SECTION 0: PROJECT SCOPE DEFINITION (The Gatekeeper)
+  {
+    id: 's0_scope',
+    title: '0. Project Service Scope',
+    description: 'Confirming the high-level services being provided. This adjusts the rest of the form.',
+    fields: [
+      {
+        id: 'service_scope',
+        label: 'Selected Service Track',
+        type: FieldType.SELECT,
+        options: ['WEBSITE', 'SEO', 'BOTH'],
+        required: true,
+        contextLock: true, // Usually locked by the Admin when creating the project
+        description: 'Determines which questions appear below.'
+      }
+    ]
+  },
+
+  // --- WEBSITE TRACK SECTIONS ---
+
+  // SECTION 1: GOAL & PURPOSE (WEBSITE)
   {
     id: 's2_goals',
-    title: '1. Goals & Purpose',
+    title: '1. Web Goals & Purpose',
     description: 'We need absolute clarity on what this website must achieve.',
+    condition: isWebsite,
     fields: [
       // MASTER SWITCH FOR WEBSITE TYPE
       { 
@@ -48,15 +73,17 @@ export const FORM_SECTIONS: SectionDefinition[] = [
         required: false 
       },
       { id: 'target_audience', label: 'Target Audience Description', type: FieldType.TEXT, required: false },
-      { id: 'target_country', label: 'Target Country/Region', type: FieldType.TEXT, required: false },
     ]
   },
 
-  // SECTION 2: DOMAIN (Common)
+  // SECTION 2: DOMAIN (WEBSITE ONLY usually, but SEO needs it if strictly SEO)
+  // Logic: Always show if Website. If SEO only, we still need to know the domain, but maybe less about purchasing it.
+  // For now, let's keep it Website focused, and ask for URL in SEO context separately to avoid redundancy if BOTH.
   {
     id: 's3_domain',
     title: '2. Domain Information',
     description: 'Critical infrastructure decisions. No website launches without this.',
+    condition: isWebsite,
     fields: [
       { id: 'has_domain', label: 'Do you already own a domain?', type: FieldType.BOOLEAN, required: true }, 
       
@@ -92,11 +119,12 @@ export const FORM_SECTIONS: SectionDefinition[] = [
     ]
   },
 
-  // SECTION 3: HOSTING (Common)
+  // SECTION 3: HOSTING (WEBSITE)
   {
     id: 's4_hosting',
     title: '3. Hosting & Server',
     description: 'Where the website lives. Delays here stop the project.',
+    condition: isWebsite,
     fields: [
       { id: 'has_existing_site', label: 'Is there an existing website?', type: FieldType.BOOLEAN, required: true },
       
@@ -125,11 +153,12 @@ export const FORM_SECTIONS: SectionDefinition[] = [
     ]
   },
 
-  // SECTION 4: STRUCTURE (Common)
+  // SECTION 4: STRUCTURE (WEBSITE)
   {
     id: 's5_structure',
     title: '4. Website Structure',
     description: 'The blueprint. No page = no build.',
+    condition: isWebsite,
     fields: [
       { id: 'total_pages', label: 'Estimated Number of Pages', type: FieldType.TEXT, required: true }, 
       { 
@@ -148,11 +177,12 @@ export const FORM_SECTIONS: SectionDefinition[] = [
     ]
   },
 
-  // SECTION 5: DESIGN (Common)
+  // SECTION 5: DESIGN (WEBSITE)
   {
     id: 's6_design',
     title: '5. Design & Brand',
     description: 'Visual requirements.',
+    condition: isWebsite,
     fields: [
       { 
         id: 'logo_status', 
@@ -173,47 +203,80 @@ export const FORM_SECTIONS: SectionDefinition[] = [
     ]
   },
 
-  // SECTION 6: CONTENT (Common)
-  {
-    id: 's7_content',
-    title: '6. Content & Copy',
-    description: 'This section prevents 80% of project delays.',
-    fields: [
-      { 
-        id: 'content_responsibility', 
-        label: 'Who provides final website content?', 
-        type: FieldType.SELECT, 
-        options: ['Client', 'Agency'], 
-        required: true 
-      },
-      
-      { 
-        id: 'content_deadline', label: 'Content Delivery Deadline', type: FieldType.DATE, required: false,
-        condition: (d) => d['content_responsibility']?.value === 'Client'
-      },
-      { 
-        id: 'approval_authority', label: 'Who has final approval authority?', type: FieldType.TEXT, required: false,
-        condition: (d) => d['content_responsibility']?.value === 'Client'
-      },
+  // --- SEO TRACK SECTIONS ---
 
+  // SEO SECTION 1: CONTEXT
+  {
+    id: 'seo_context',
+    title: 'SEO 1. Audit & Context',
+    description: 'Current status of your search presence.',
+    condition: isSEO,
+    fields: [
+      { id: 'target_url', label: 'Target Website URL', type: FieldType.TEXT, required: true },
+      { id: 'previous_seo_work', label: 'Has SEO work been done before?', type: FieldType.BOOLEAN, required: true },
       { 
-        id: 'copy_tone', label: 'Desired Brand Tone', type: FieldType.TEXT, required: false,
-        condition: (d) => d['content_responsibility']?.value === 'Agency'
+        id: 'seo_penalty_history', label: 'Any history of Google Penalties?', type: FieldType.BOOLEAN, required: true 
       },
       { 
-        id: 'seo_keywords', label: 'Target Keywords', type: FieldType.TEXTAREA, required: false,
-        condition: (d) => d['content_responsibility']?.value === 'Agency'
+        id: 'access_gsc', label: 'Google Search Console Access', type: FieldType.SELECT, options: ['Provided', 'Will Provide', 'Need Setup'], required: true 
       },
+      { 
+        id: 'access_ga4', label: 'Google Analytics 4 Access', type: FieldType.SELECT, options: ['Provided', 'Will Provide', 'Need Setup'], required: true 
+      },
+      { 
+        id: 'access_gtm', label: 'Google Tag Manager Access', type: FieldType.SELECT, options: ['Provided', 'Will Provide', 'Need Setup', 'NA'], required: true 
+      }
     ]
   },
 
-  // --- SERVICE SPECIFIC SECTION ---
+  // SEO SECTION 2: GOALS & TARGETING
+  {
+    id: 'seo_targeting',
+    title: 'SEO 2. Goals & Targeting',
+    description: 'Defining success and target market.',
+    condition: isSEO,
+    fields: [
+      { 
+        id: 'seo_primary_kpi', label: 'Primary KPI', type: FieldType.SELECT, 
+        options: ['Traffic Volume', 'Lead Conversions', 'Keyword Rankings', 'Brand Visibility'], required: true 
+      },
+      { id: 'target_geo', label: 'Target Geographies (Cities/Countries)', type: FieldType.TEXT, required: true },
+      { id: 'top_3_competitors', label: 'Top 3 Organic Competitors (URLs)', type: FieldType.TEXTAREA, required: true },
+      { id: 'priority_keywords', label: 'Known Priority Keywords', type: FieldType.TEXTAREA, required: false },
+      { id: 'negative_keywords', label: 'Keywords to AVOID', type: FieldType.TEXTAREA, required: false }
+    ]
+  },
+
+  // SEO SECTION 3: CONTENT & TECHNICAL
+  {
+    id: 'seo_content_tech',
+    title: 'SEO 3. Content & Technical',
+    description: 'Execution details.',
+    condition: isSEO,
+    fields: [
+      { 
+        id: 'blog_capability', label: 'Who will write blog content?', type: FieldType.SELECT, 
+        options: ['Client Team', 'Agency', 'Hybrid'], required: true 
+      },
+      { 
+        id: 'cms_access', label: 'CMS/Backend Access for Tech Fixes', type: FieldType.SELECT, 
+        options: ['Full Admin Provided', 'Limited Access Provided', 'No Access (Dev Team Implements)'], required: true 
+      },
+      { 
+        id: 'approval_process', label: 'Content Approval Process', type: FieldType.TEXT, required: false,
+        description: 'e.g. 24hr turnaround, Legal review required, etc.'
+      }
+    ]
+  },
+
+  // --- COMMON SECTIONS (Conditional Logic Applied) ---
+
+  // SECTION: SERVICE/ECOMMERCE SPECIFIC (WEBSITE ONLY)
   {
     id: 's_service_functional',
-    title: '7. Service Requirements',
+    title: 'Web Functionality',
     description: 'Specific functionality for service-based businesses.',
-    // Condition: Only show if Website Type is 'Business/Service'
-    condition: (data) => data['website_type']?.value === 'Business/Service' || !data['website_type'], // Default to this if empty
+    condition: (data) => isWebsite(data) && (data['website_type']?.value === 'Business/Service' || !data['website_type']), 
     fields: [
       { id: 'needs_contact_form', label: 'Contact Forms?', type: FieldType.BOOLEAN, required: true },
       { id: 'needs_booking', label: 'Booking / Reservation System?', type: FieldType.BOOLEAN, required: true },
@@ -231,13 +294,12 @@ export const FORM_SECTIONS: SectionDefinition[] = [
     ]
   },
 
-  // --- E-COMMERCE SPECIFIC SECTION ---
+  // SECTION: E-COMMERCE SPECIFIC (WEBSITE ONLY)
   {
     id: 's_ecommerce',
-    title: '7. E-Commerce Scope',
+    title: 'E-Commerce Scope',
     description: 'Specifics for your online store infrastructure.',
-    // Condition: Only show if Website Type is 'E-commerce'
-    condition: (data) => data['website_type']?.value === 'E-commerce',
+    condition: (data) => isWebsite(data) && data['website_type']?.value === 'E-commerce',
     fields: [
       {
         id: 'product_count',
@@ -285,11 +347,12 @@ export const FORM_SECTIONS: SectionDefinition[] = [
     ]
   },
 
-  // SECTION 8: SEO (Common)
+  // SECTION: SEO (BASIC) - Only show if WEBSITE Only (Full SEO track covers this if combined)
   {
     id: 's9_seo',
-    title: '8. SEO & Performance',
-    description: 'Scope limited to website setup only.',
+    title: 'Basic SEO Setup',
+    description: 'Scope limited to initial website setup.',
+    condition: (data) => isWebsite(data) && !isSEO(data),
     fields: [
       { id: 'basic_seo_req', label: 'Basic On-Page SEO Required?', type: FieldType.BOOLEAN, required: true },
       { 
@@ -303,11 +366,12 @@ export const FORM_SECTIONS: SectionDefinition[] = [
     ]
   },
 
-  // SECTION 9: ACCESS (Common)
+  // SECTION: ACCESS (WEBSITE ONLY - SEO has its own access section)
   {
     id: 's10_access',
-    title: '9. Access Checklist',
+    title: 'Final Access Checklist',
     description: 'We cannot start without these.',
+    condition: isWebsite,
     fields: [
       { id: 'access_domain', label: 'Domain Registrar Access', type: FieldType.SELECT, options: ['Provided', 'Will Provide', 'Agency Creating'], required: false },
       { id: 'access_hosting', label: 'Hosting/CPanel Access', type: FieldType.SELECT, options: ['Provided', 'Will Provide', 'Agency Creating'], required: false },

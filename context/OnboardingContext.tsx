@@ -1,5 +1,6 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
-import { OnboardingState, MOCK_CONTEXT, Answer, Responsibility, FieldDefinition, ProjectContext } from '../types';
+import { OnboardingState, MOCK_CONTEXT, Answer, Responsibility, FieldDefinition, ProjectContext, ServiceType } from '../types';
 import { FORM_SECTIONS } from '../constants';
 
 // --- CONFIGURATION ---
@@ -18,6 +19,14 @@ interface OnboardingContextType extends OnboardingState {
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
+
+export const useOnboarding = () => {
+  const context = useContext(OnboardingContext);
+  if (!context) {
+    throw new Error('useOnboarding must be used within an OnboardingProvider');
+  }
+  return context;
+};
 
 export const OnboardingProvider = ({ children, projectId }: { children?: ReactNode, projectId?: string }) => {
   // Determine active project
@@ -85,11 +94,23 @@ export const OnboardingProvider = ({ children, projectId }: { children?: ReactNo
             clientName: backendSession.project.clientName || backendSession.project.client?.name || 'Unknown Client',
             websiteType: backendSession.project.websiteType || 'Business',
             platform: backendSession.project.platform || 'Custom',
-            tier: backendSession.project.tier || 'Standard'
+            tier: backendSession.project.tier || 'Standard',
+            serviceType: backendSession.project.serviceType || ServiceType.WEBSITE
         };
     }
 
-    // Default Pre-fills based on context
+    // --- AUTO-FILL & LOCK LOGIC ---
+    
+    // 1. Service Scope (Locked based on Admin creation)
+    if (!mappedData['service_scope']) {
+        mappedData['service_scope'] = {
+            value: context.serviceType, // 'WEBSITE', 'SEO', or 'BOTH'
+            responsibility: Responsibility.NA, // NA because it's a system setting
+            lastUpdated: new Date().toISOString()
+        };
+    }
+
+    // 2. Default Pre-fills based on context
     if (!mappedData['website_type']) {
         let defaultType = 'Business/Service';
         if (context.websiteType === 'E-commerce') defaultType = 'E-commerce';
@@ -274,6 +295,9 @@ export const OnboardingProvider = ({ children, projectId }: { children?: ReactNo
     if (field.required) {
        if (responsibility === Responsibility.NA) return null;
        if (responsibility === Responsibility.AGENCY) return null;
+       // Special check: If system field (contextLocked), having a value is enough, responsibility doesn't matter
+       if (field.contextLock && (value === '' || value === null || value === undefined)) return "System Error: Field missing";
+       
        if (value === '' || value === null || value === undefined) return "This field is required.";
        if (Array.isArray(value) && value.length === 0) return "Please make a selection.";
     }
@@ -326,12 +350,30 @@ export const OnboardingProvider = ({ children, projectId }: { children?: ReactNo
 
   const nextStep = () => {
     if (validateStep(state.currentStep)) {
-      setState(prev => ({ ...prev, currentStep: Math.min(prev.currentStep + 1, FORM_SECTIONS.length) }));
+        // Logic to skip hidden sections
+        let nextIndex = state.currentStep + 1;
+        while(nextIndex < FORM_SECTIONS.length) {
+            const nextSection = FORM_SECTIONS[nextIndex];
+            if(!nextSection.condition || nextSection.condition(state.data, state.context)) {
+                break;
+            }
+            nextIndex++;
+        }
+        setState(prev => ({ ...prev, currentStep: Math.min(nextIndex, FORM_SECTIONS.length) }));
     }
   };
 
   const prevStep = () => {
-    setState(prev => ({ ...prev, currentStep: Math.max(prev.currentStep - 1, 0) }));
+      // Logic to skip hidden sections backwards
+      let prevIndex = state.currentStep - 1;
+      while(prevIndex >= 0) {
+          const prevSection = FORM_SECTIONS[prevIndex];
+          if(!prevSection.condition || prevSection.condition(state.data, state.context)) {
+              break;
+          }
+          prevIndex--;
+      }
+      setState(prev => ({ ...prev, currentStep: Math.max(prevIndex, 0) }));
   };
 
   const getMissingFields = (): string[] => {
@@ -361,10 +403,4 @@ export const OnboardingProvider = ({ children, projectId }: { children?: ReactNo
       {children}
     </OnboardingContext.Provider>
   );
-};
-
-export const useOnboarding = () => {
-  const context = useContext(OnboardingContext);
-  if (!context) throw new Error('useOnboarding must be used within OnboardingProvider');
-  return context;
 };

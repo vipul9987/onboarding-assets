@@ -14,6 +14,12 @@ export enum FieldType {
   DATE = 'date'
 }
 
+export enum ServiceType {
+  WEBSITE = 'WEBSITE',
+  SEO = 'SEO',
+  BOTH = 'BOTH'
+}
+
 export interface FieldDefinition {
   id: string;
   label: string;
@@ -51,6 +57,7 @@ export interface OnboardingState {
 export interface ProjectContext {
   projectId: string;
   clientName: string;
+  serviceType: ServiceType;
   // Specific Agency Fields
   websiteType: 'Business' | 'E-commerce' | 'Landing Page' | 'Portfolio';
   platform: 'WordPress' | 'Shopify' | 'Custom';
@@ -62,6 +69,7 @@ export interface AdminProjectSummary {
   _id: string;
   name: string;
   clientName: string;
+  serviceType: ServiceType;
   platform: string;
   tier: string;
   status: string;
@@ -73,6 +81,7 @@ export interface AdminProjectSummary {
 export const MOCK_CONTEXT: ProjectContext = {
   projectId: 'WEB-2024-001',
   clientName: 'Nexus Innovations',
+  serviceType: ServiceType.WEBSITE,
   websiteType: 'E-commerce', 
   platform: 'Shopify',
   tier: 'Standard'

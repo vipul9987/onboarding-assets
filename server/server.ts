@@ -1,3 +1,4 @@
+
 import express, { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
@@ -139,13 +140,14 @@ app.get('/api/admin/projects', async (req: any, res: any) => {
         _id: p._id,
         name: p.name,
         clientName: p.client?.name || 'Unknown',
+        serviceType: p.serviceType || 'WEBSITE',
         platform: p.platform,
         tier: p.tier,
         status: p.status,
         isLocked: session ? session.isLocked : false,
         lockedAt: session?.lockedAt,
         // Rough progress calculation
-        progress: session ? Math.min(100, (session.answers.length / 25) * 100) : 0 
+        progress: session ? Math.min(100, (session.answers.length / (p.serviceType === 'BOTH' ? 40 : 25)) * 100) : 0 
       };
     }));
 
@@ -159,7 +161,7 @@ app.get('/api/admin/projects', async (req: any, res: any) => {
 // Create a new project manually
 app.post('/api/admin/projects', async (req: any, res: any) => {
     try {
-        const { clientName, name, platform, tier, websiteType } = req.body;
+        const { clientName, name, platform, tier, websiteType, serviceType } = req.body;
         
         // Find or Create Client
         let client = await ClientModel.findOne({ name: clientName });
@@ -173,6 +175,7 @@ app.post('/api/admin/projects', async (req: any, res: any) => {
             platform,
             tier,
             websiteType,
+            serviceType: serviceType || 'WEBSITE',
             status: 'ONBOARDING'
         });
 
@@ -201,39 +204,30 @@ app.get('/api/seed', async (req: any, res: any) => {
         const client1 = await ClientModel.create({ name: 'Nexus Innovations', taxId: 'US-123', primaryContact: { name: 'Sarah Connor', email: 'sarah@nexus.com' } });
         const client2 = await ClientModel.create({ name: 'Urban Coffee Co.', taxId: 'US-456', primaryContact: { name: 'John Doe', email: 'john@coffee.com' } });
         const client3 = await ClientModel.create({ name: 'FinTech Global', taxId: 'US-789', primaryContact: { name: 'Mike Ross', email: 'm.ross@fintech.com' } });
+        const client4 = await ClientModel.create({ name: 'Growth Marketing Ltd', taxId: 'US-999', primaryContact: { name: 'Jenny Lee', email: 'j.lee@growth.com' } });
 
-        // Project 1 (The Demo One)
-        const p1 = await ProjectModel.create({
-            _id: 'WEB-2024-001', // Explicit ID for demo consistency
+        // Project 1: Website
+        await ProjectModel.create({
+            _id: 'WEB-2024-001',
             client: client1._id,
             name: 'Nexus Main E-com',
             websiteType: 'E-commerce',
             platform: 'Shopify',
             tier: 'Standard',
+            serviceType: 'WEBSITE',
             status: 'ONBOARDING'
         });
 
-        // Project 2 (Active)
+        // Project 2: Website Active
         const p2 = await ProjectModel.create({
             client: client2._id,
             name: 'Urban Coffee Landing',
             websiteType: 'Landing Page',
             platform: 'Webflow',
             tier: 'Basic',
+            serviceType: 'WEBSITE',
             status: 'ACTIVE'
         });
-
-        // Project 3 (Onboarding)
-        const p3 = await ProjectModel.create({
-            client: client3._id,
-            name: 'FinTech Corporate Portal',
-            websiteType: 'Business',
-            platform: 'Custom',
-            tier: 'Custom',
-            status: 'ONBOARDING'
-        });
-        
-        // Create a locked session for Project 2
         await OnboardingSessionModel.create({
             project: p2._id,
             isLocked: true,
@@ -241,6 +235,28 @@ app.get('/api/seed', async (req: any, res: any) => {
             answers: [{ fieldId: 'website_type', value: 'Landing Page', responsibility: 'CLIENT' }]
         });
 
+        // Project 3: SEO Only
+        await ProjectModel.create({
+            client: client4._id,
+            name: 'Growth SEO Campaign Q1',
+            websiteType: 'Business',
+            platform: 'WordPress',
+            tier: 'Standard',
+            serviceType: 'SEO',
+            status: 'ONBOARDING'
+        });
+
+        // Project 4: BOTH
+        await ProjectModel.create({
+            client: client3._id,
+            name: 'FinTech Portal + SEO',
+            websiteType: 'Business',
+            platform: 'Custom',
+            tier: 'Custom',
+            serviceType: 'BOTH',
+            status: 'ONBOARDING'
+        });
+        
         res.json({ message: 'Database seeded! Refresh dashboard.' });
     } catch (err) {
         res.status(500).json({ error: err.message });

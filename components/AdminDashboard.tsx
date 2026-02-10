@@ -1,5 +1,6 @@
+
 import React, { useEffect, useState } from 'react';
-import { AdminProjectSummary } from '../types';
+import { AdminProjectSummary, ServiceType } from '../types';
 
 interface Props {
   onSelectProject: (projectId: string) => void;
@@ -13,20 +14,21 @@ const DEFAULT_MOCK_PROJECTS: AdminProjectSummary[] = [
         clientName: 'Nexus Innovations',
         platform: 'Shopify',
         tier: 'Standard',
+        serviceType: ServiceType.WEBSITE,
         status: 'ONBOARDING',
         isLocked: false,
         progress: 65
     },
     {
-        _id: 'WEB-2024-002',
-        name: 'Urban Coffee Landing',
-        clientName: 'Urban Coffee Co.',
-        platform: 'Webflow',
-        tier: 'Basic',
-        status: 'ACTIVE',
-        isLocked: true,
-        lockedAt: '2023-11-15T10:00:00Z',
-        progress: 100
+        _id: 'SEO-2024-003',
+        name: 'Growth SEO Campaign Q1',
+        clientName: 'Growth Marketing',
+        platform: 'WordPress',
+        tier: 'Standard',
+        serviceType: ServiceType.SEO,
+        status: 'ONBOARDING',
+        isLocked: false,
+        progress: 15
     }
 ];
 
@@ -41,7 +43,8 @@ export const AdminDashboard: React.FC<Props> = ({ onSelectProject }) => {
     clientName: '',
     projectName: '',
     platform: 'WordPress',
-    tier: 'Standard'
+    tier: 'Standard',
+    serviceType: 'WEBSITE'
   });
 
   const loadProjects = async () => {
@@ -81,6 +84,7 @@ export const AdminDashboard: React.FC<Props> = ({ onSelectProject }) => {
           clientName: newProject.clientName,
           platform: newProject.platform,
           tier: newProject.tier,
+          serviceType: newProject.serviceType,
           websiteType: 'Business' // Default for simplified creation
       };
 
@@ -105,6 +109,7 @@ export const AdminDashboard: React.FC<Props> = ({ onSelectProject }) => {
               clientName: payload.clientName,
               platform: payload.platform,
               tier: payload.tier,
+              serviceType: payload.serviceType as ServiceType,
               status: 'ONBOARDING',
               isLocked: false,
               progress: 0
@@ -124,7 +129,7 @@ export const AdminDashboard: React.FC<Props> = ({ onSelectProject }) => {
           localStorage.setItem('scopelock_db_sessions', JSON.stringify(currentSessions));
 
           setShowCreateModal(false);
-          setNewProject({ clientName: '', projectName: '', platform: 'WordPress', tier: 'Standard' });
+          setNewProject({ clientName: '', projectName: '', platform: 'WordPress', tier: 'Standard', serviceType: 'WEBSITE' });
       }
   };
 
@@ -201,7 +206,16 @@ export const AdminDashboard: React.FC<Props> = ({ onSelectProject }) => {
 
                 <div className="mb-4">
                     <h3 className="text-xl font-bold text-white group-hover:text-brand-accent transition-colors mb-1">{proj.clientName}</h3>
-                    <div className="text-sm text-slate-400">{proj.name}</div>
+                    <div className="flex items-center space-x-2">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono border ${
+                            proj.serviceType === 'SEO' ? 'bg-purple-900/30 text-purple-400 border-purple-500/30' :
+                            proj.serviceType === 'BOTH' ? 'bg-blue-900/30 text-blue-400 border-blue-500/30' :
+                            'bg-brand-surface text-slate-400 border-brand-border'
+                        }`}>
+                            {proj.serviceType || 'WEBSITE'}
+                        </span>
+                        <div className="text-sm text-slate-400 truncate">{proj.name}</div>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 text-sm mb-6">
@@ -255,6 +269,18 @@ export const AdminDashboard: React.FC<Props> = ({ onSelectProject }) => {
                   <h2 className="text-xl font-bold text-white mb-6">Initialize New Project</h2>
                   
                   <div className="space-y-4">
+                      <div>
+                          <label className="text-xs uppercase text-slate-500 font-bold block mb-1">Service Scope</label>
+                          <select 
+                                className="w-full bg-brand-dark border border-brand-border rounded p-2 text-white outline-none focus:border-brand-accent"
+                                value={newProject.serviceType}
+                                onChange={(e) => setNewProject({...newProject, serviceType: e.target.value})}
+                            >
+                                <option value="WEBSITE">Website Development Only</option>
+                                <option value="SEO">SEO Only</option>
+                                <option value="BOTH">Full Stack (Website + SEO)</option>
+                            </select>
+                      </div>
                       <div>
                           <label className="text-xs uppercase text-slate-500 font-bold block mb-1">Client Name</label>
                           <input 
