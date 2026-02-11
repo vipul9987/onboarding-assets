@@ -23,7 +23,7 @@ export const FORM_SECTIONS: SectionDefinition[] = [
     ]
   },
 
-  // SECTION 1: BUSINESS IDENTITY & GOALS (The "Who & Why")
+  // SECTION 1: BUSINESS IDENTITY & GOALS
   {
     id: 's1_identity',
     title: 'Phase 1: Your Business & Goals',
@@ -70,7 +70,7 @@ export const FORM_SECTIONS: SectionDefinition[] = [
     ]
   },
 
-  // SECTION 2: THE DIGITAL ADDRESS (Domain & Hosting)
+  // SECTION 2: DOMAIN & HOSTING
   {
     id: 's2_infrastructure',
     title: 'Phase 2: Domain & Hosting',
@@ -115,7 +115,7 @@ export const FORM_SECTIONS: SectionDefinition[] = [
     ]
   },
 
-  // SECTION 3: WEBSITE BLUEPRINT (The "What")
+  // SECTION 3: BLUEPRINT
   {
     id: 's3_blueprint',
     title: 'Phase 3: The Website Build',
@@ -160,7 +160,7 @@ export const FORM_SECTIONS: SectionDefinition[] = [
     ]
   },
 
-  // SECTION 4: E-COMMERCE SPECIFICS
+  // SECTION 4: E-COMMERCE
   {
     id: 's4_ecommerce',
     title: 'Phase 4: Your Online Store',
@@ -231,4 +231,11 @@ export const FORM_SECTIONS: SectionDefinition[] = [
         condition: isSEO
       },
       { 
-        id: 'billing
+        id: 'billing_agreement',
+        label: 'I acknowledge that changes after submission are billable revisions',
+        type: FieldType.BOOLEAN,
+        required: true
+      }
+    ]
+  }
+];
